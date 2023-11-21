@@ -1,13 +1,26 @@
+import logging
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from utils import gpt_client, prompts, scraping
+from utils.WebScraper import WebScraper
+from utils import gpt_client, prompts
 from config import OPEN_AI_GPT_4, OPEN_AI_GPT_35_TURBO, OPEN_AI_GPT_4_TURBO
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
 def is_valid_url(url):
     """Check if the URL is valid."""
     return url.startswith('http://') or url.startswith('https://')
+
+def scrape_content(url: str) -> str:
+    scraper = WebScraper(url)
+    content = scraper.scrape_content()
+    if content is None:
+        logger.error(f"Failed to scrape content from {url}")
+    return content
 
 @app.post('/check-compliance')
 async def check_compliance(request: Request):
@@ -24,8 +37,8 @@ async def check_compliance(request: Request):
         raise HTTPException(status_code=400, detail="Invalid 'website_url'")
 
     try:
-        policy_text = scraping.scrape_content(data['policy_url'])
-        website_text = scraping.scrape_content(data['website_url'])
+        policy_text = scrape_content(data['policy_url'])
+        website_text = scrape_content(data['website_url'])
 
         if policy_text is None or website_text is None:
             return JSONResponse({"error": "Error scraping content from one of the URLs"}, status_code=500)
